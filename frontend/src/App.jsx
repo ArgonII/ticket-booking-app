@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import './0000App.css';
+import './App.css';
 
 function App() {
   const [events, setEvents] = useState([]);
@@ -42,7 +42,7 @@ function App() {
 
     return () => controller.abort();
   }, []);
-
+const unusedVariable = 123;
   useEffect(() => {
     if (!selectedEvent) return;
 
