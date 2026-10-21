@@ -33,7 +33,7 @@ describe('Bookings API', () => {
                 seatNumber: 3
             });
 
-        expect(response.statusCode).toBe(4090);
+        expect(response.statusCode).toBe(409);
         expect(response.body.error).toBe('Seat is already booked');
     });
 
