@@ -3,16 +3,17 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-"scripts": {
-  "start": "node server.js",
-  "test": "jest --runInBand"
-},
+  "scripts": {
+    "start": "node server.js",
+    "test": "jest --runInBand"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "jest": "^30.5.2",
