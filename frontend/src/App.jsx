@@ -42,7 +42,7 @@ function App() {
 
     return () => controller.abort();
   }, []);
-const unusedVariable = 123;
+
   useEffect(() => {
     if (!selectedEvent) return;
 
