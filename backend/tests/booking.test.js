@@ -1,8 +1,53 @@
 
 const request = require('supertest');
+
+jest.mock('../db', () => ({
+    query: jest.fn()
+}));
+
+const pool = require('../db');
 const app = require('../server');
 
 describe('Bookings API', () => {
+    let bookedSeats;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+
+        bookedSeats = {
+            1: [3, 7, 12],
+            2: [5, 10],
+            3: []
+        };
+
+        pool.query.mockImplementation(async (sql, params) => {
+            if (sql.includes('SELECT seat_number')) {
+                const eventId = params[0];
+
+                return {
+                    rows: bookedSeats[eventId].map(number => ({
+                        seat_number: number
+                    }))
+                };
+            }
+
+            if (sql.includes('INSERT INTO bookings')) {
+                const [eventId, seatNumber] = params;
+
+                if (bookedSeats[eventId].includes(seatNumber)) {
+                    const error = new Error('Duplicate booking');
+                    error.code = '23505';
+                    throw error;
+                }
+
+                bookedSeats[eventId].push(seatNumber);
+
+                return { rowCount: 1 };
+            }
+
+            throw new Error(`Unexpected SQL query: ${sql}`);
+        });
+    });
 
     test('GET seats should return 20 seats', async () => {
         const response = await request(app)
@@ -58,6 +103,7 @@ describe('Bookings API', () => {
 
         expect(response.statusCode).toBe(404);
     });
+
     test('Booked seat should become unavailable', async () => {
         const bookingResponse = await request(app)
             .post('/api/bookings')
