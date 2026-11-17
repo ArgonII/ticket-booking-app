@@ -1,12 +1,11 @@
 
 name: Ticket Booking CI
-
 on:
   push:
-    branches: [main]
+    branches: [main, feature/lab5-testing-iac]
   pull_request:
     branches: [main]
-
+    
 jobs:
   backend-tests:
     name: Backend Tests
@@ -60,3 +59,69 @@ jobs:
 
       - name: Build React app
         run: npm run build
+
+  integration-tests:
+    name: Newman + Selenium E2E
+    runs-on: ubuntu-latest
+
+    env:
+      CI: "true"
+      BACKEND_HOST_PORT: "3002"
+      FRONTEND_HOST_PORT: "8082"
+      FRONTEND_URL: "http://localhost:8082"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Start isolated test environment
+        run: docker compose -p ticket-booking-test up -d --build --wait
+
+      - name: Wait for application
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:3002/api/events > /dev/null &&
+               curl -fsS http://localhost:8082 > /dev/null; then
+              echo "Application is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker compose -p ticket-booking-test logs
+          exit 1
+
+      - name: Run Newman API tests
+        working-directory: backend
+        run: |
+          npx newman run postman/TicketBooking.postman_collection.json \
+            --env-var "baseUrl=http://localhost:3002"
+
+      - name: Run Selenium E2E tests
+        working-directory: frontend
+        run: node e2e/smoke.test.cjs
+
+      - name: Show Docker logs on failure
+        if: failure()
+        run: docker compose -p ticket-booking-test logs
+
+      - name: Cleanup test environment
+        if: always()
+        run: docker compose -p ticket-booking-test down --volumes

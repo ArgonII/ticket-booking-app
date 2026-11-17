@@ -1,0 +1,216 @@
+{
+    "info": {
+        "name": "Ticket Booking API Tests",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3001"
+        }
+    ],
+    "item": [
+        {
+            "name": "GET Events",
+            "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/events"
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                            "pm.test('Events list is returned', () => {",
+                            "  const events = pm.response.json();",
+                            "  pm.expect(events).to.be.an('array');",
+                            "  pm.expect(events.length).to.be.greaterThan(0);",
+                            "});"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "GET Event Seats",
+            "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/events/1/seats"
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                            "pm.test('20 seats returned', () => {",
+                            "  pm.expect(pm.response.json()).to.have.lengthOf(20);",
+                            "});"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "GET Nonexistent Event",
+            "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/events/999/seats"
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "pm.test('Status 404', () => pm.response.to.have.status(404));"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "POST Invalid Booking",
+            "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/bookings",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\"eventId\":1,\"seatNumber\":21}"
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "pm.test('Status 400', () => pm.response.to.have.status(400));"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Find Free Seat",
+            "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/events/3/seats"
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "pm.test('Available seat found', () => {",
+                            "  pm.response.to.have.status(200);",
+                            "  const seats = pm.response.json();",
+                            "  const freeSeat = seats.find(seat => !seat.isBooked);",
+                            "  pm.expect(freeSeat).to.exist;",
+                            "  pm.collectionVariables.set('bookingSeat', freeSeat.number);",
+                            "});"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "POST Book Free Seat",
+            "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/bookings",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\"eventId\":3,\"seatNumber\":{{bookingSeat}}}"
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "pm.test('Booking created - Status 201', () => {",
+                            "  pm.response.to.have.status(201);",
+                            "});",
+                            "pm.test('Correct seat was booked', () => {",
+                            "  const result = pm.response.json();",
+                            "  pm.expect(result.eventId).to.eql(3);",
+                            "  pm.expect(result.seatNumber).to.eql(Number(pm.collectionVariables.get('bookingSeat')));",
+                            "});"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "POST Duplicate Booking",
+            "request": {
+                "method": "POST",
+                "url": "{{baseUrl}}/api/bookings",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\"eventId\":3,\"seatNumber\":{{bookingSeat}}}"
+                }
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "pm.test('Duplicate booking rejected - Status 409', () => {",
+                            "  pm.response.to.have.status(409);",
+                            "});",
+                            "pm.test('Correct error message', () => {",
+                            "  const result = pm.response.json();",
+                            "  pm.expect(result.error).to.eql('Seat is already booked');",
+                            "});"
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "GET Verify Booked Seat",
+            "request": {
+                "method": "GET",
+                "url": "{{baseUrl}}/api/events/3/seats"
+            },
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "exec": [
+                            "pm.test('Status 200', () => {",
+                            "  pm.response.to.have.status(200);",
+                            "});",
+                            "pm.test('Booked seat is unavailable', () => {",
+                            "  const seats = pm.response.json();",
+                            "  const seatNumber = Number(pm.collectionVariables.get('bookingSeat'));",
+                            "  const seat = seats.find(s => s.number === seatNumber);",
+                            "  pm.expect(seat).to.exist;",
+                            "  pm.expect(seat.isBooked).to.eql(true);",
+                            "});"
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}
