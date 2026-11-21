@@ -9,4 +9,4 @@ scrape_configs:
 
     static_configs:
       - targets:
-          - 'backend:3000'
+          - 'host.docker.internal:3111'
