@@ -1,0 +1,71 @@
+
+name: Ticket Booking CD
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Local Kubernetes
+    runs-on: [self-hosted, Windows, X64, local-k8s]
+
+    defaults:
+      run:
+        shell: powershell
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Kubernetes context
+        run: |
+          $context = kubectl config current-context
+          if ($context -ne "docker-desktop") {
+            throw "Wrong Kubernetes context: $context"
+          }
+
+          kubectl get namespace ticket-booking
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Build backend Docker image
+        run: |
+          docker build -t "ticket-booking-app-backend:${{ github.sha }}" ./backend
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Build frontend Docker image
+        run: |
+          docker build -t "ticket-booking-app-frontend:${{ github.sha }}" ./frontend
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/backend.yaml -f k8s/frontend.yaml
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Update Kubernetes images
+        run: |
+          kubectl set image deployment/backend `
+            "backend=ticket-booking-app-backend:${{ github.sha }}" `
+            -n ticket-booking
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          kubectl set image deployment/frontend `
+            "frontend=ticket-booking-app-frontend:${{ github.sha }}" `
+            -n ticket-booking
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/backend `
+            -n ticket-booking --timeout=180s
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          kubectl rollout status deployment/frontend `
+            -n ticket-booking --timeout=180s
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+          kubectl get pods -n ticket-booking
+          if ($LASTEXITCODE -ne 0) { exit 1 }

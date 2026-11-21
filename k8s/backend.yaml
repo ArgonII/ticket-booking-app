@@ -13,7 +13,20 @@ spec:
     metadata:
       labels:
         app: ticket-booking-backend
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "ticket-booking-backend"
+        vault.hashicorp.com/service: "http://vault.vault.svc:8200"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+
+        vault.hashicorp.com/agent-inject-secret-db-password: "secret/data/ticket-booking/database"
+        vault.hashicorp.com/agent-inject-template-db-password: |
+          {{- with secret "secret/data/ticket-booking/database" -}}
+          {{ .Data.data.password }}
+          {{- end -}}
+
     spec:
+      serviceAccountName: ticket-booking-backend
       containers:
         - name: backend
           image: ticket-booking-app-backend:latest
@@ -26,20 +39,12 @@ spec:
             - name: DB_PORT
               value: "5432"
             - name: DB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: ticket-booking-db-secret
-                  key: POSTGRES_USER
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: ticket-booking-db-secret
-                  key: POSTGRES_PASSWORD
+              value: postgres
+            - name: DB_PASSWORD_FILE
+              value: /vault/secrets/db-password
             - name: DB_NAME
-              valueFrom:
-                secretKeyRef:
-                  name: ticket-booking-db-secret
-                  key: POSTGRES_DB
+              value: ticketbooking
+
           readinessProbe:
             httpGet:
               path: /api/events

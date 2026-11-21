@@ -1,9 +1,16 @@
 const express = require('express');
 const pool = require('./db');
-
+const { register, metricsMiddleware } = require('./metrics');
 const app = express();
 app.use(express.json());
 const PORT = 3000;
+
+app.use(metricsMiddleware);
+
+app.get('/metrics', async (req, res) => {
+    res.set('Content-Type', register.contentType);
+    res.send(await register.metrics());
+});
 
 const events = [
     {

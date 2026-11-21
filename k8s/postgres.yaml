@@ -24,23 +24,44 @@ spec:
   selector:
     matchLabels:
       app: ticket-booking-db
+
   template:
     metadata:
       labels:
         app: ticket-booking-db
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "ticket-booking-postgres"
+        vault.hashicorp.com/service: "http://vault.vault.svc:8200"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+
+        vault.hashicorp.com/agent-inject-secret-db-password: "secret/data/ticket-booking/database"
+        vault.hashicorp.com/agent-inject-template-db-password: |
+          {{- with secret "secret/data/ticket-booking/database" -}}
+          {{ .Data.data.password }}
+          {{- end -}}
+
     spec:
+      serviceAccountName: ticket-booking-postgres
+
       containers:
         - name: postgres
           image: postgres:15-alpine
           imagePullPolicy: IfNotPresent
+
           ports:
             - containerPort: 5432
-          envFrom:
-            - secretRef:
-                name: ticket-booking-db-secret
+
           env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: ticketbooking
+            - name: POSTGRES_PASSWORD_FILE
+              value: /vault/secrets/db-password
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
+
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
@@ -48,6 +69,7 @@ spec:
               mountPath: /docker-entrypoint-initdb.d/init.sql
               subPath: init.sql
               readOnly: true
+
           readinessProbe:
             exec:
               command:
@@ -56,6 +78,7 @@ spec:
                 - pg_isready -h 127.0.0.1 -U postgres -d ticketbooking
             initialDelaySeconds: 5
             periodSeconds: 5
+
       volumes:
         - name: postgres-data
           persistentVolumeClaim:

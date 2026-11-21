@@ -1,11 +1,16 @@
-
 name: Ticket Booking CI
+
 on:
   push:
-    branches: [main, feature/lab5-testing-iac]
+    branches:
+      - main
+      - feature/lab5-testing-iac
+      - feature/lab6-monitoring-cd
+
   pull_request:
-    branches: [main]
-    
+    branches:
+      - main
+
 jobs:
   backend-tests:
     name: Backend Tests
@@ -125,3 +130,17 @@ jobs:
       - name: Cleanup test environment
         if: always()
         run: docker compose -p ticket-booking-test down --volumes
+  
+  deploy-local:
+    name: Deploy Ticket Booking
+    needs:
+      - backend-tests
+      - frontend-check
+      - integration-tests
+
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/feature/lab6-monitoring-cd'
+
+    uses: ./.github/workflows/deploy.yml
+
